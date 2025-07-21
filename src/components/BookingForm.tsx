@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useRooms } from '../hooks/useRooms';
+import { useBookings } from '../hooks/useBookings';
 import type { BookingData } from '../utils/types';
 
 interface BookingFormProps {
-  selectedRoom?: number;
+  selectedRoom?: string;
   onSubmit: (data: BookingData) => void;
 }
 
@@ -15,13 +16,16 @@ const BookingForm: React.FC<BookingFormProps> = ({ selectedRoom, onSubmit }) => 
     checkIn: '',
     checkOut: '',
     guests: 1,
-    roomType: selectedRoom || 0,
+    roomType: selectedRoom ? parseInt(selectedRoom) : 0,
     specialRequests: '',
   });
 
   const [mealPlan, setMealPlan] = useState<BookingData['mealPlan']>('bed_only');
   const [errors, setErrors] = useState<Partial<BookingData>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const { rooms, loading: roomsLoading } = useRooms(formData.checkIn, formData.checkOut);
+  const { createBooking } = useBookings();
 
   const validateForm = (): boolean => {
     const newErrors: Partial<BookingData> = {};
@@ -62,41 +66,30 @@ const BookingForm: React.FC<BookingFormProps> = ({ selectedRoom, onSubmit }) => 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    // Send to backend (optional)
-    onSubmit({ ...formData, mealPlan });
+    setIsSubmitting(true);
 
-    const room = rooms.find(r => r.id === formData.roomType);
-    const mealPlanLabel = {
-      bed_only: 'Bed Only',
-      bb: 'Bed & Breakfast',
-      half_board: 'Half Board',
-      full_board: 'Full Board',
-    }[mealPlan];
-
-    const message = `
-Hello, I would like to make a room booking:
-
-• Name: ${formData.name}
-• Email: ${formData.email}
-• Phone: ${formData.phone}
-• Check-in: ${formData.checkIn}
-• Check-out: ${formData.checkOut}
-• Guests: ${formData.guests}
-• Room Type: ${room?.name || 'N/A'}
-• Meal Plan: ${mealPlanLabel}
-• Special Requests: ${formData.specialRequests || 'None'}
-
-Please let me know if it's available. Thank you!
-    `;
-
-    const encodedMessage = encodeURIComponent(message);
-    const phoneNumber = '+254759750318';
-    const whatsappLink = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
-    window.open(whatsappLink, '_blank');
+    try {
+      const bookingData = { ...formData, mealPlan };
+      
+      // Create booking in local storage
+      const success = await createBooking(bookingData);
+      
+      if (success) {
+        // Call parent onSubmit for UI updates
+        onSubmit(bookingData);
+      } else {
+        alert('Failed to create booking. Please try again.');
+      }
+    } catch (error) {
+      console.error('Booking submission error:', error);
+      alert('An error occurred while creating your booking. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleInputChange = (
@@ -127,107 +120,157 @@ Please let me know if it's available. Thank you!
   };
 
   if (roomsLoading) {
-    return <div>Loading rooms...</div>;
+    return (
+      <div className="max-w-2xl mx-auto p-4 bg-white shadow-md rounded-md">
+        <div className="animate-pulse">
+          <div className="h-6 bg-gray-200 rounded mb-4"></div>
+          <div className="space-y-4">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-10 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <section className="max-w-2xl mx-auto p-4 bg-white shadow-md rounded-md">
       <h2 className="text-xl font-semibold mb-4">Make a Reservation</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          name="name"
-          value={formData.name}
-          onChange={handleInputChange}
-          className="w-full p-2 border rounded"
-          placeholder="Full Name"
-        />
-        {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+        <div>
+          <input
+            name="name"
+            value={formData.name}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            placeholder="Full Name"
+            disabled={isSubmitting}
+          />
+          {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+        </div>
 
-        <input
-          name="email"
-          value={formData.email}
-          onChange={handleInputChange}
-          className="w-full p-2 border rounded"
-          placeholder="Email Address"
-        />
-        {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+        <div>
+          <input
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            placeholder="Email Address"
+            disabled={isSubmitting}
+          />
+          {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+        </div>
 
-        <input
-          name="phone"
-          value={formData.phone}
-          onChange={handleInputChange}
-          className="w-full p-2 border rounded"
-          placeholder="Phone Number"
-        />
-        {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
+        <div>
+          <input
+            name="phone"
+            value={formData.phone}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            placeholder="Phone Number"
+            disabled={isSubmitting}
+          />
+          {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+        </div>
 
-        <input
-          type="date"
-          name="checkIn"
-          value={formData.checkIn}
-          min={getMinDate()}
-          onChange={handleInputChange}
-          className="w-full p-2 border rounded"
-        />
-        {errors.checkIn && <p className="text-red-500 text-sm">{errors.checkIn}</p>}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Check-in Date</label>
+          <input
+            type="date"
+            name="checkIn"
+            value={formData.checkIn}
+            min={getMinDate()}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            disabled={isSubmitting}
+          />
+          {errors.checkIn && <p className="text-red-500 text-sm mt-1">{errors.checkIn}</p>}
+        </div>
 
-        <input
-          type="date"
-          name="checkOut"
-          value={formData.checkOut}
-          min={formData.checkIn}
-          onChange={handleInputChange}
-          className="w-full p-2 border rounded"
-        />
-        {errors.checkOut && <p className="text-red-500 text-sm">{errors.checkOut}</p>}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Check-out Date</label>
+          <input
+            type="date"
+            name="checkOut"
+            value={formData.checkOut}
+            min={formData.checkIn || getMinDate()}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            disabled={isSubmitting}
+          />
+          {errors.checkOut && <p className="text-red-500 text-sm mt-1">{errors.checkOut}</p>}
+        </div>
 
-        <input
-          type="number"
-          name="guests"
-          value={formData.guests}
-          min={1}
-          onChange={handleInputChange}
-          className="w-full p-2 border rounded"
-          placeholder="Number of Guests"
-        />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Number of Guests</label>
+          <input
+            type="number"
+            name="guests"
+            value={formData.guests}
+            min={1}
+            max={4}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            disabled={isSubmitting}
+          />
+        </div>
 
-        <select
-          name="roomType"
-          value={formData.roomType}
-          onChange={handleInputChange}
-          className="w-full p-2 border rounded"
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+          <select
+            name="roomType"
+            value={formData.roomType}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            disabled={isSubmitting}
+          >
+            <option value={0}>Select a Room</option>
+            {rooms.map((room) => (
+              <option key={room.id} value={room.id} disabled={!room.available}>
+                {room.name} {!room.available && '(Not Available)'}
+              </option>
+            ))}
+          </select>
+          {errors.roomType && <p className="text-red-500 text-sm mt-1">{errors.roomType}</p>}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Meal Plan</label>
+          <select
+            name="mealPlan"
+            value={mealPlan}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            disabled={isSubmitting}
+          >
+            <option value="bed_only">Bed Only</option>
+            <option value="bb">Bed & Breakfast</option>
+            <option value="half_board">Half Board</option>
+            <option value="full_board">Full Board</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Special Requests (Optional)</label>
+          <textarea
+            name="specialRequests"
+            value={formData.specialRequests}
+            onChange={handleInputChange}
+            className="w-full p-2 border rounded focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            rows={3}
+            placeholder="Any special requests or requirements..."
+            disabled={isSubmitting}
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          disabled={isSubmitting}
+          className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed font-semibold transition-colors"
         >
-          <option value={0}>Select a Room</option>
-          {rooms.map((room) => (
-            <option key={room.id} value={room.id}>
-              {room.name}
-            </option>
-          ))}
-        </select>
-        {errors.roomType && <p className="text-red-500 text-sm">{errors.roomType}</p>}
-
-        <select
-          name="mealPlan"
-          value={mealPlan}
-          onChange={handleInputChange}
-          className="w-full p-2 border rounded"
-        >
-          <option value="bed_only">Bed Only</option>
-          <option value="bb">Bed & Breakfast</option>
-          <option value="half_board">Half Board</option>
-          <option value="full_board">Full Board</option>
-        </select>
-
-        <textarea
-          name="specialRequests"
-          value={formData.specialRequests}
-          onChange={handleInputChange}
-          className="w-full p-2 border rounded"
-          placeholder="Special Requests (Optional)"
-        />
-
-        <button type="submit" className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">
-          Submit & Continue on WhatsApp
+          {isSubmitting ? 'Creating Booking...' : 'Submit & Continue on WhatsApp'}
         </button>
       </form>
     </section>

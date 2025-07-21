@@ -1,6 +1,6 @@
 # ACK Mt. Kenya Guest House Website – Nyeri, Kenya
 
-Welcome to the official repository of the **ACK Mt. Kenya Guest House Website**, a modern web application developed for a guest house located in **Nyeri Town, Kenya**. The website showcases accommodation options, booking system, contact information, and more—built with performance and scalability in mind.
+Welcome to the official repository of the **ACK Mt. Kenya Guest House Website**, a modern web application developed for a guest house located in **Nyeri Town, Kenya**. The website showcases accommodation options, frontend-only booking system, contact information, and more—built with performance and user experience in mind.
 
 ---
 
@@ -18,13 +18,13 @@ The **ACK Mt. Kenya Guest House – Nyeri** is a serene, faith-based hospitality
 ## ✨ Website Features
 
 - 🛏️ Detailed accommodation listings with real-time availability
-- 📅 Online booking system with Supabase backend
+- 📅 Frontend-only booking system with local storage
 - 📸 Visual gallery of rooms and amenities
 - 📍 Location information with interactive map
 - 📱 Responsive design for mobile, tablet, and desktop
 - ⚡ Fast-loading SPA with modern performance optimization
 - 💬 WhatsApp integration for instant communication
-- 🔒 Secure booking management with row-level security
+- 💾 Local data persistence for booking management
 
 ---
 
@@ -36,39 +36,42 @@ The **ACK Mt. Kenya Guest House – Nyeri** is a serene, faith-based hospitality
 | [TypeScript](https://www.typescriptlang.org/)   | Type-safe JavaScript development |
 | [Vite](https://vitejs.dev/)        | Lightning-fast dev/build tooling |
 | [Tailwind CSS](https://tailwindcss.com/) | Utility-first CSS framework |
-| [Supabase](https://supabase.com/)  | Backend database and authentication |
+| [Local Storage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage)  | Frontend data persistence |
 | [React Router](https://reactrouter.com/) | Client-side routing |
 | [Lucide React](https://lucide.dev/) | Beautiful icon library |
 
 ---
 
-## 🗄️ Database Schema
+## 💾 Data Structure
 
-The application uses Supabase with the following tables:
+The application uses local storage with the following data structures:
 
-### Rooms Table
-- `id` (text, primary key)
+### Rooms Data
+- `id` (string, unique identifier)
 - `name` (text) - Room name
 - `description` (text) - Room description
-- `price` (integer) - Price per night in KSh
+- `bed_only`, `bb`, `half_board`, `full_board` (number) - Pricing for different meal plans
 - `capacity` (integer) - Maximum guests
 - `amenities` (text array) - List of amenities
 - `image_url` (text) - Room image URL
-- `created_at` / `updated_at` (timestamps)
+- `available` (boolean) - Availability status
 
-### Bookings Table
-- `id` (uuid, primary key)
-- `room_id` (text, foreign key to rooms)
-- `guest_name`, `guest_email`, `guest_phone` (text)
-- `check_in_date`, `check_out_date` (date)
+### Bookings Data (stored in localStorage as 'ack_bookings')
+- `id` (string, unique identifier)
+- `roomType` (string) - Room ID
+- `name`, `email`, `phone` (string) - Guest information
+- `checkIn`, `checkOut` (string) - Dates in ISO format
 - `number_of_guests` (integer)
-- `special_requests` (text, optional)
+- `specialRequests` (string, optional)
 - `status` (enum: pending, confirmed, cancelled, completed)
-- `total_amount` (integer)
-- `created_at` / `updated_at` (timestamps)
+- `totalAmount` (number)
+- `mealPlan` (string) - Selected meal plan
+- `createdAt` (string) - ISO timestamp
 
-### Database Functions
-- `check_room_availability()` - Checks if a room is available for given dates
+### Frontend Functions
+- Room availability checking against existing bookings
+- Automatic pricing calculation based on meal plans
+- WhatsApp integration for booking confirmation
 
 ---
 
@@ -76,7 +79,6 @@ The application uses Supabase with the following tables:
 
 ### Prerequisites
 - Node.js 18+ and npm
-- Supabase account and project
 
 ### Installation
 
@@ -91,23 +93,7 @@ cd ACK_guest_house_website
 npm install
 ```
 
-3. **Set up environment variables**
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and add your Supabase credentials:
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-4. **Set up Supabase database**
-- Create a new Supabase project
-- Run the migration file in `supabase/migrations/` in your Supabase SQL editor
-- This will create the rooms and bookings tables with sample data
-
-5. **Start the development server**
+3. **Start the development server**
 ```bash
 npm run dev
 ```
@@ -130,10 +116,8 @@ src/
 ├── hooks/              # Custom React hooks
 │   ├── useRooms.ts
 │   ├── useBookings.ts
+│   ├── usePayments.ts
 │   └── useContacts.ts
-├── lib/                # External service configurations
-│   ├── supabase.ts
-│   └── database.ts
 ├── pages/              # Page components
 │   ├── Home.tsx
 │   ├── Rooms.tsx
@@ -167,25 +151,24 @@ The website can be deployed to various platforms:
 1. Connect your GitHub repository to Netlify
 2. Set build command: `npm run build`
 3. Set publish directory: `dist`
-4. Add environment variables in Netlify dashboard
 
 ### Vercel
 1. Import project from GitHub
 2. Set framework preset to Vite
-3. Add environment variables
 
 ---
 
 ## 📱 Features in Detail
 
 ### Booking System
-- Real-time room availability checking
+- Real-time room availability checking against local storage
 - Form validation and error handling
 - WhatsApp integration for instant booking
-- Booking status management
+- Local booking storage and management
+- Multiple meal plan options with dynamic pricing
 
 ### Room Management
-- Dynamic room listing from database
+- Dynamic room listing with mock data
 - Image galleries with lightbox
 - Amenity filtering and display
 - Pricing and capacity information
@@ -198,12 +181,12 @@ The website can be deployed to various platforms:
 
 ---
 
-## 🔒 Security Features
+## 💾 Data Management
 
-- Row Level Security (RLS) enabled on all tables
+- Local storage for booking persistence
 - Input validation and sanitization
-- Secure environment variable handling
-- HTTPS enforcement in production
+- Client-side availability checking
+- Automatic data cleanup and management
 
 ---
 
@@ -220,8 +203,8 @@ The website can be deployed to various platforms:
 ## 📞 Contact
 
 **ACK Mt. Kenya Guest House**
-- Phone: +254 759 750 318
-- Email: josekeam01@gmail.com
+- Phone: +254 720 577 442
+- Email: ackguesthsenyeri025@gmail.com
 - Location: Nyeri, Kenya
 
 **Developer**
@@ -240,4 +223,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Images provided by [Pexels](https://pexels.com)
 - Icons by [Lucide](https://lucide.dev)
 - Built with [Vite](https://vitejs.dev) and [React](https://react.dev)
-- Backend powered by [Supabase](https://supabase.com)
+- Frontend-only architecture for simplicity and performance

@@ -1,9 +1,18 @@
 import { useState } from 'react';
-import { supabase, testSupabaseConnection } from '../lib/supabase';
-import type { Database } from '../lib/supabase';
 import type { PaymentData, Payment } from '../utils/types';
 
-type PaymentInsert = Database['public']['Tables']['payments']['Insert'];
+export interface PaymentRecord {
+  id: string;
+  bookingId: string;
+  amount: number;
+  paymentType: 'deposit' | 'balance' | 'full';
+  paymentMethod: 'mpesa' | 'cash' | 'cheque' | 'bank_transfer';
+  paymentReference?: string;
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  paidAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const usePayments = () => {
   const [loading, setLoading] = useState(false);
@@ -14,59 +23,34 @@ export const usePayments = () => {
       setLoading(true);
       setError(null);
 
-      // Test Supabase connection
-      const connectionTest = await testSupabaseConnection();
-      
-      if (!connectionTest) {
-        console.log('Supabase not available, simulating payment creation:', paymentData);
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Store payment in localStorage for demo
-        const existingPayments = JSON.parse(localStorage.getItem('demo_payments') || '[]');
-        const newPayment = {
-          id: Date.now().toString(),
-          ...paymentData,
-          status: 'completed', // Auto-complete for demo
-          paid_at: new Date().toISOString(),
-          created_at: new Date().toISOString()
-        };
-        existingPayments.push(newPayment);
-        localStorage.setItem('demo_payments', JSON.stringify(existingPayments));
-        
-        console.log('Demo payment stored locally:', newPayment);
-        return true;
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Real Supabase payment logic
-      console.log('Creating payment with Supabase...');
+      // Get existing payments
+      const existingPayments = JSON.parse(localStorage.getItem('ack_payments') || '[]');
 
-      const paymentInsert: PaymentInsert = {
-        booking_id: paymentData.bookingId,
+      // Create new payment
+      const newPayment: PaymentRecord = {
+        id: `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        bookingId: paymentData.bookingId,
         amount: paymentData.amount,
-        payment_type: paymentData.paymentType,
-        payment_method: paymentData.paymentMethod,
-        payment_reference: paymentData.paymentReference || null,
+        paymentType: paymentData.paymentType,
+        paymentMethod: paymentData.paymentMethod,
+        paymentReference: paymentData.paymentReference,
         status: paymentData.paymentMethod === 'cash' ? 'pending' : 'completed',
-        paid_at: paymentData.paymentMethod === 'cash' ? null : new Date().toISOString()
+        paidAt: paymentData.paymentMethod === 'cash' ? undefined : new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
-      console.log('Inserting payment:', paymentInsert);
+      // Save payment
+      existingPayments.push(newPayment);
+      localStorage.setItem('ack_payments', JSON.stringify(existingPayments));
 
-      const { error: insertError } = await supabase
-        .from('payments')
-        .insert(paymentInsert);
-
-      if (insertError) {
-        console.error('Payment insert error:', insertError);
-        throw new Error(`Failed to create payment: ${insertError.message}`);
-      }
-
-      console.log('Payment created successfully in Supabase');
+      console.log('✅ Payment created successfully:', newPayment);
       return true;
     } catch (err) {
-      console.error('Error creating payment:', err);
+      console.error('❌ Error creating payment:', err);
       setError(err instanceof Error ? err.message : 'Failed to create payment');
       return false;
     } finally {
@@ -79,28 +63,15 @@ export const usePayments = () => {
       setLoading(true);
       setError(null);
 
-      // Test Supabase connection
-      const connectionTest = await testSupabaseConnection();
-      
-      if (!connectionTest) {
-        console.log('Getting demo payments from localStorage...');
-        const demoPayments = JSON.parse(localStorage.getItem('demo_payments') || '[]');
-        return demoPayments.filter((payment: any) => payment.bookingId === bookingId);
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Real Supabase query
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('booking_id', bookingId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Payments fetch error:', error);
-        throw new Error(`Failed to fetch payments: ${error.message}`);
-      }
-
-      return data || [];
+      const payments = JSON.parse(localStorage.getItem('ack_payments') || '[]');
+      return payments
+        .filter((payment: PaymentRecord) => payment.bookingId === bookingId)
+        .sort((a: PaymentRecord, b: PaymentRecord) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
     } catch (err) {
       console.error('Error fetching payments:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch payments');
@@ -115,41 +86,19 @@ export const usePayments = () => {
       setLoading(true);
       setError(null);
 
-      // Test Supabase connection
-      const connectionTest = await testSupabaseConnection();
-      
-      if (!connectionTest) {
-        console.log('Updating demo payment status...');
-        const demoPayments = JSON.parse(localStorage.getItem('demo_payments') || '[]');
-        const updatedPayments = demoPayments.map((payment: any) => 
-          payment.id === paymentId 
-            ? { ...payment, status, paid_at: status === 'completed' ? new Date().toISOString() : payment.paid_at }
-            : payment
-        );
-        localStorage.setItem('demo_payments', JSON.stringify(updatedPayments));
-        return true;
-      }
+      const payments = JSON.parse(localStorage.getItem('ack_payments') || '[]');
+      const updatedPayments = payments.map((payment: PaymentRecord) =>
+        payment.id === paymentId 
+          ? { 
+              ...payment, 
+              status, 
+              paidAt: status === 'completed' ? new Date().toISOString() : payment.paidAt,
+              updatedAt: new Date().toISOString()
+            }
+          : payment
+      );
 
-      // Real Supabase update
-      const updateData: any = { 
-        status,
-        updated_at: new Date().toISOString()
-      };
-
-      if (status === 'completed') {
-        updateData.paid_at = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from('payments')
-        .update(updateData)
-        .eq('id', paymentId);
-
-      if (error) {
-        console.error('Payment update error:', error);
-        throw new Error(`Failed to update payment: ${error.message}`);
-      }
-
+      localStorage.setItem('ack_payments', JSON.stringify(updatedPayments));
       return true;
     } catch (err) {
       console.error('Error updating payment:', err);

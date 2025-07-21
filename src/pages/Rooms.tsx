@@ -45,7 +45,10 @@ const Rooms: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Loading rooms...</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading rooms...</p>
+        </div>
       </div>
     );
   }
@@ -124,11 +127,11 @@ const Rooms: React.FC = () => {
       {/* Rooms */}
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 grid gap-8 lg:grid-cols-2">
-          {rooms.slice(0, 10).map((room) => (
+          {rooms.map((room) => (
             <div key={room.id} className="bg-white rounded-lg shadow hover:shadow-lg transition">
               <div className="relative">
                 <img
-                  src={room.image_url ?? ''}
+                  src={room.image_url}
                   alt={room.name}
                   className="w-full h-64 object-cover"
                   loading="lazy"
@@ -183,7 +186,7 @@ const Rooms: React.FC = () => {
                   </button>
                   {room.available ? (
                     <Link
-                      to={`/booking?room=${room.id || room.id}`}
+                      to={`/booking?room=${room.id}`}
                       className="flex-1 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md text-center"
                     >
                       Book Now
@@ -209,7 +212,7 @@ const Rooms: React.FC = () => {
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="relative">
               <img
-                src={selectedRoom.image_url ?? ''}
+                src={selectedRoom.image_url}
                 alt={selectedRoom.name}
                 className="w-full h-64 object-cover"
                 loading="lazy"
@@ -256,7 +259,7 @@ const Rooms: React.FC = () => {
                 </button>
                 {selectedRoom.available && (
                   <Link
-                    to={`/booking?room=${selectedRoom.id || selectedRoom.id}`}
+                    to={`/booking?room=${selectedRoom.id}`}
                     className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-md"
                     onClick={() => setSelectedRoom(null)}
                   >

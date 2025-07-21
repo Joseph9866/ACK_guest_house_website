@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, testSupabaseConnection } from '../lib/supabase';
-import type { Database } from '../lib/supabase';
 
-// Base room type from Supabase schema
-type Room = Database['public']['Tables']['rooms']['Row'];
-
-// Extended with custom fields
-export interface RoomWithAvailability extends Room {
+// Base room type for frontend-only implementation
+export interface RoomWithAvailability {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  capacity: number;
+  amenities: string[];
+  image_url: string;
+  created_at: string;
+  updated_at: string;
   available: boolean;
   bed_only: number;
   bb: number;
@@ -14,20 +18,21 @@ export interface RoomWithAvailability extends Room {
   full_board: number;
 }
 
-const fallbackRooms: RoomWithAvailability[] = (() => {
+const mockRooms: RoomWithAvailability[] = (() => {
   const now = new Date().toISOString();
   return [
     {
       id: '1',
       name: 'Single Room',
       description: 'Simple single bed room with private bathroom and Wi-Fi.',
+      price: 1000,
       bed_only: 1000,
       bb: 1200,
       half_board: 2500,
       full_board: 3500,
       capacity: 1,
       amenities: ['TV', 'Desk', 'Free Wi-Fi', 'Private Bathroom', 'Wardrobe'],
-      image_url: 'https://zsayrztvhbduflijzefb.supabase.co/storage/v1/object/public/imagesbucket//ACKbed.jpeg',
+      image_url: 'Images/ACKbed.jpeg',
       created_at: now,
       updated_at: now,
       available: true
@@ -36,13 +41,14 @@ const fallbackRooms: RoomWithAvailability[] = (() => {
       id: '2',
       name: 'Double Room',
       description: 'Double bed room ideal for couples. Comes with private bath and fridge.',
+      price: 1200,
       bed_only: 1200,
       bb: 1500,
       half_board: 2800,
       full_board: 4300,
       capacity: 2,
       amenities: ['Desk', 'Wardrobe', 'Private Bathroom', 'Free Wi-Fi', 'TV', 'Mini Fridge'],
-      image_url: 'https://zsayrztvhbduflijzefb.supabase.co/storage/v1/object/public/imagesbucket//ACKbedmain.jpeg',
+      image_url: 'Images/ACKbedmain.jpeg',
       created_at: now,
       updated_at: now,
       available: true
@@ -51,19 +57,45 @@ const fallbackRooms: RoomWithAvailability[] = (() => {
       id: '3',
       name: 'Double Room + Extra Bed',
       description: 'Spacious room with extra bed for kids or third guest.',
+      price: 2500,
       bed_only: 2500,
       bb: 2900,
       half_board: 4300,
       full_board: 6300,
       capacity: 3,
       amenities: ['Desk', 'Wardrobe', 'Private Bathroom', 'Free Wi-Fi', 'TV', 'Mini Fridge', 'Seating Area'],
-      image_url: 'https://zsayrztvhbduflijzefb.supabase.co/storage/v1/object/public/imagesbucket//ACKbedview.jpeg',
+      image_url: 'Images/ACKbedview.jpeg',
       created_at: now,
       updated_at: now,
       available: true
     }
   ];
 })();
+
+// Check room availability against local storage bookings
+const checkRoomAvailability = (roomId: string, checkIn?: string, checkOut?: string): boolean => {
+  if (!checkIn || !checkOut) return true;
+
+  const bookings = JSON.parse(localStorage.getItem('ack_bookings') || '[]');
+  const checkInDate = new Date(checkIn);
+  const checkOutDate = new Date(checkOut);
+
+  // Check for overlapping bookings
+  const hasOverlap = bookings.some((booking: any) => {
+    if (booking.roomType !== roomId || booking.status === 'cancelled') return false;
+
+    const bookingCheckIn = new Date(booking.checkIn);
+    const bookingCheckOut = new Date(booking.checkOut);
+
+    return (
+      (checkInDate <= bookingCheckIn && checkOutDate > bookingCheckIn) ||
+      (checkInDate < bookingCheckOut && checkOutDate >= bookingCheckOut) ||
+      (checkInDate >= bookingCheckIn && checkOutDate <= bookingCheckOut)
+    );
+  });
+
+  return !hasOverlap;
+};
 
 export const useRooms = (checkIn?: string, checkOut?: string) => {
   const [rooms, setRooms] = useState<RoomWithAvailability[]>([]);
@@ -75,48 +107,25 @@ export const useRooms = (checkIn?: string, checkOut?: string) => {
       setLoading(true);
       setError(null);
 
-      const connected = await testSupabaseConnection();
-      if (!connected) {
-        console.warn('Supabase connection failed. Using fallback data.');
-        setRooms(fallbackRooms);
-        return;
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      const { data, error: fetchError } = await supabase
-        .from('rooms')
-        .select('*')
-        .order('price');
-
-      if (fetchError) {
-        throw new Error(fetchError.message);
-      }
-
-      if (!data || data.length === 0) {
-        console.warn('No rooms found. Using fallback data.');
-        setRooms(fallbackRooms);
-        return;
-      }
-
-      const enrichedRooms: RoomWithAvailability[] = data.map((room) => ({
+      // Update room availability based on bookings
+      const roomsWithAvailability = mockRooms.map(room => ({
         ...room,
-        available: true,
-        image_url: room.image_url || '', // fallback if missing
-        bed_only: room.bed_only || 0,
-        bb: room.bb || 0,
-        half_board: room.half_board || 0,
-        full_board: room.full_board || 0
+        available: checkRoomAvailability(room.id, checkIn, checkOut)
       }));
 
-      setRooms(enrichedRooms);
+      setRooms(roomsWithAvailability);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       console.error('Room fetch failed:', message);
       setError(message);
-      setRooms(fallbackRooms);
+      setRooms(mockRooms);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [checkIn, checkOut]);
 
   useEffect(() => {
     fetchRooms();

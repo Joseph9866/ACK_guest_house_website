@@ -24,13 +24,24 @@ const Booking: React.FC = () => {
 
   const calculateBookingTotal = () => {
     if (!submittedData) return 0;
+    
+    // Get room pricing based on meal plan
+    const roomPrices = {
+      1: { bed_only: 1000, bb: 1200, half_board: 2500, full_board: 3500 },
+      2: { bed_only: 1200, bb: 1500, half_board: 2800, full_board: 4300 },
+      3: { bed_only: 2500, bb: 2900, half_board: 4300, full_board: 6300 }
+    };
+    
     const nights = Math.ceil(
       (new Date(submittedData.checkOut).getTime() -
         new Date(submittedData.checkIn).getTime()) /
         (1000 * 3600 * 24)
     );
-    const roomPrice = 3500;
-    return nights * roomPrice;
+    
+    const roomPrice = roomPrices[submittedData.roomType as keyof typeof roomPrices];
+    const pricePerNight = roomPrice ? roomPrice[submittedData.mealPlan] : 3500;
+    
+    return nights * pricePerNight;
   };
 
   const calculateDepositAmount = () => {
@@ -39,7 +50,14 @@ const Booking: React.FC = () => {
   };
 
   if (isSubmitted && submittedData) {
-    const message = `Hi, I just submitted a booking request.%0A%0AName: ${submittedData.name}%0APhone: ${submittedData.phone}%0AEmail: ${submittedData.email}%0ACheck-in: ${submittedData.checkIn}%0ACheck-out: ${submittedData.checkOut}%0AGuests: ${submittedData.guests}%0ASpecial Requests: ${submittedData.specialRequests || 'None'}`;
+    const mealPlanLabel = {
+      bed_only: 'Bed Only',
+      bb: 'Bed & Breakfast',
+      half_board: 'Half Board',
+      full_board: 'Full Board',
+    }[submittedData.mealPlan];
+    
+    const message = `Hi, I just submitted a booking request.%0A%0AName: ${submittedData.name}%0APhone: ${submittedData.phone}%0AEmail: ${submittedData.email}%0ACheck-in: ${submittedData.checkIn}%0ACheck-out: ${submittedData.checkOut}%0AGuests: ${submittedData.guests}%0AMeal Plan: ${mealPlanLabel}%0ATotal Amount: KSh ${calculateBookingTotal().toLocaleString()}%0ADeposit Required: KSh ${calculateDepositAmount().toLocaleString()}%0ASpecial Requests: ${submittedData.specialRequests || 'None'}`;
 
     return (
       <div className="min-h-screen bg-gray-50">
@@ -67,8 +85,9 @@ const Booking: React.FC = () => {
                   <div><span className="font-medium">Guests:</span> {submittedData.guests}</div>
                   <div><span className="font-medium">Check-in:</span> {new Date(submittedData.checkIn).toLocaleDateString()}</div>
                   <div><span className="font-medium">Check-out:</span> {new Date(submittedData.checkOut).toLocaleDateString()}</div>
+                  <div><span className="font-medium">Meal Plan:</span> {mealPlanLabel}</div>
                   <div><span className="font-medium">Total:</span> KSh {calculateBookingTotal().toLocaleString()}</div>
-                  <div><span className="font-medium">Deposit (50%):</span> KSh {calculateDepositAmount().toLocaleString()}</div>
+                  <div className="md:col-span-2"><span className="font-medium">Deposit Required (50%):</span> <span className="text-amber-600 font-bold">KSh {calculateDepositAmount().toLocaleString()}</span></div>
                 </div>
               </div>
 

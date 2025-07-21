@@ -16,8 +16,9 @@ export interface BookingData {
   checkIn: string;
   checkOut: string;
   guests: number;
-  roomType: number; // ✅ Updated from string to number
+  roomType: number;
   specialRequests?: string;
+  mealPlan: 'bed_only' | 'bb' | 'half_board' | 'full_board';
 }
 
 export interface PaymentData {
